@@ -1,10 +1,35 @@
 node {
     def myGradleContainer = docker.image('gradle:jdk8-alpine')
     myGradleContainer.pull()
+	    def server = Artifactory.server('newtechacademy.jfrog.io')
+    def rtGradle = Artifactory.newGradleBuild()
+    def buildInfo = Artifactory.newBuildInfo()
+	  // config 
+  def to = emailextrecipients([
+          [$class: 'CulpritsRecipientProvider'],
+          [$class: 'DevelopersRecipientProvider'],
+          [$class: 'RequesterRecipientProvider']
+  ])
+
+  // job
+    try {
 
     stage('prep') {
         git url: 'https://github.com/wardviaene/gs-gradle.git'
     }
+	    stage 'Artifactory configuration'
+        rtGradle.tool = 'gradle' // Tool name from Jenkins configuration
+        rtGradle.deployer repo:'gradle-dev-local',  server: server
+        rtGradle.resolver repo:'gradle-dev', server: server
+
+        stage('Config Build Info') {
+            buildInfo.env.capture = true
+            buildInfo.env.filter.addInclude("*")
+        }
+
+        stage('Extra gradle configurations') {
+            rtGradle.usesPlugin = true // Artifactory plugin already defined in build script
+        }
 
     stage('build') {
       myGradleContainer.inside("-v ${env.HOME}/.gradle:/home/gradle/.gradle") {
